@@ -18,7 +18,6 @@ func main() {
         panic(err)
     }
     for {
-        fmt.Println("I'm listening")
         conn, err := listener.Accept()
         if err != nil {
             panic(err)
