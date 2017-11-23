@@ -6,6 +6,9 @@ import (
     "net/http"
     "net/http/httputil"
     "strings"
+    "compress/gzip"
+    "io"
+    "os"
 )
 
 func main() {
@@ -19,18 +22,20 @@ func main() {
     for {
         var err error
         if conn == nil {
-            conn, err := net.Dial("tcp", "localhost:8888")
-            fmt.Printf("Acess: %v\n", conn)
+            conn, err = net.Dial("tcp", "localhost:8888")
             if err != nil {
                 panic(err)
             }
             fmt.Printf("Acess: %d\n", current)
         }
         request, err := http.NewRequest(
-            "POST", "http://localhost:8888", strings.NewReader(sendMessages[current]))
+            "POST",
+            "http://localhost:8888",
+            strings.NewReader(sendMessages[current]))
         if err != nil {
             panic(err)
         }
+        request.Header.Set("Accept-Encoding", "gzip")
         request.Write(conn)
         if err != nil {
             panic(err)
@@ -42,11 +47,22 @@ func main() {
             conn = nil
             continue
         }
-        dump, err := httputil.DumpResponse(response, true)
+        dump, err := httputil.DumpResponse(response, false)
         if err != nil {
             panic(err)
         }
         fmt.Println(string(dump))
+        defer response.Body.Close()
+        if response.Header.Get("Content-Encoding") == "gzip" {
+            reader, err := gzip.NewReader(response.Body)
+            if err != nil {
+                panic(err)
+            }
+            io.Copy(os.Stdout, reader)
+            reader.Close()
+        } else {
+            io.Copy(os.Stdout, response.Body)
+        }
         current++
         if current == len(sendMessages) {
             break
